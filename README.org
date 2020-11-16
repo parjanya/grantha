@@ -22,6 +22,53 @@ elsewhere: which one is worse, dependecy hell or redundancy?
 
 Tested with ~sbcl~ and ~clisp~.
 
+** list of exported symbols
+
+- ROUND-TO /(function)/ :: I round NUMBER to PRECISION.
+- CONCAT /(function)/ :: I try to be smart in concatenating items, silently converting them to strings.
+- PADDING /(function)/ :: Give me a string, the length it should have, and what to pad it
+with, and I shall return thee the selfsame string thus padded.
+- PRINT-HEX /(function)/ :: I print the given number in a hexadecimal representation.
+- LAST-MEMBER /(function)/ :: I return the actual last member of a list.
+- GET-ODD-ELEMENTS /(function)/ :: Give me a list and I shall return thee its odd elements.
+- TRUNCATE-TIME /(function)/ :: Give me some seconds, and them I shall return thee divided by the
+maximum possible unit, together with that unit.
+- PARSE-TIME /(function)/ :: I either return thee the current `get-decoded-time' as a plist, or
+I parse the time given in the same format, that thou providest me.
+- STR /(function)/ :: I return i represented as a string.
+- HUMAN-READABLE-NUMBER /(function)/ :: 
+- PRINT-BIN /(function)/ :: I print the given number in a binary representation.
+- CHAR-TO-INT /(function)/ :: Give me either a character or a list of them, and I shall return them
+converted to ints to thee. I am the contrary of `int-to-char'.
+- MAKE-PLIST /(function)/ :: Construct a property list from KEYS and DATA.
+- INT-TO-STR /(function)/ :: Give me either an int or a list of them, and I shall return them
+as a string, after converting them to characters. I am the contrary of `str-to-int'.
+- TIME-TO-EXECUTE-AND-RESULT /(function)/ :: Returns the time (always in miliseconds?) to execute FORM, and its result.
+- INT-TO-CHAR /(function)/ :: Give me either an int or a list of them, and I shall return them
+converted to chars to thee. I am the contrary of `char-to-int'.
+- CURRENT-DATE-STRING /(function)/ :: I return thee a string with the current date, and time if thou so
+wishest, and likewise the timezone.  Cf. ISO 8601.  Time should be
+separated with 'T' instead of '_', but Edgard thinks it less legible.
+- SUBTRACT-TIME-OF-DAY /(function)/ :: I get two times in the format (seconds microseconds), returned by
+`get-time-of-day' for instance, and return their difference.
+- PRETTY-NUMBER /(function)/ :: I truncate the bytes you give me. I am more expensive than `truncate-memory'.
+- PREVIOUS /(function)/ :: Give me something, like an integer, a character, or a string, and I
+will return thee the previous one of its kind. I am the contrary of `next'.
+- TRUNCATE-MEMORY /(function)/ :: Give me some bytes, and them I shall return thee divided by the
+maximum possible unit, together with that unit.
+- GARBAGE-FULL /(function)/ :: I ask for full garbage collection and return thee the number of
+bytes freed. Sometimes I return negative numbers, what should I do
+with them?
+- GET-EVEN-ELEMENTS /(function)/ :: Give me a list and I shall return thee its even elements.
+- STR-TO-INT /(function)/ :: Give me either a string or a list of them, and I shall return everything
+as a list, after converting them to integers. I am the contrary of `int-to-str'.
+- NEXT /(function)/ :: Give me something, like an integer, a character, or a string, and I
+will return thee the next one of its kind. I am the contrary of `previous'.
+- ALIAS /(function)/ :: Makes an alias named QUOTED-NEW-NAME for QUOTED-PREV-NAME.
+- REVERSE-CONS /(function)/ :: I reverse a cons pair.
+- CONVERT /(function)/ :: I try converting the given quantity from the before unit to the
+after unit. I am not smart. Check `*equivalences*' to see all I know."
+
 
 ** todo
 

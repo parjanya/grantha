@@ -70,6 +70,22 @@
 
 
 ;;
+;; packages
+;;
+
+(defun list-exported-symbols-with-docstrings (package)
+  (let ((out ""))
+    (do-external-symbols (p package)
+      (if (ignore-errors (symbol-function p))
+	  (setq out (concat out *newline* "- " (symbol-name p) " /(function)/ :: "
+			    (documentation p 'function))))
+      (if (ignore-errors (symbol-value p))
+	  (setq out (concat out *newline* "- " (symbol-name p) " /(variable)/ :: "
+			    (documentation p 'variable)))))
+    out))
+
+
+;;
 ;; lists
 ;;
 
@@ -94,9 +110,11 @@
       (setq out (append (list (car x) (car y)) out)))))
 
 (defun last-member (lst)
+  "I return the actual last member of a list."
   (car (last lst)))
 
 (defun reverse-cons (cns)
+  "I reverse a cons pair."
   (cons (cdr cns) (car cns)))
 
 
@@ -141,6 +159,7 @@ maximum possible unit, together with that unit."
 	  (t (list days "millenia")))))
 
 (defun round-to (number precision &optional (what #'round))
+  "I round NUMBER to PRECISION."
     (let ((div (expt 10 precision)))
          (/ (funcall what (* number div)) div)))
 
@@ -194,7 +213,8 @@ and the short string for it.")
 
 (defparameter *equivalences*
   '(((foot . metre) . 0.3048)
-    ((centimetre . inch) . 0.39370078740157)))
+    ((centimetre . inch) . 0.39370078740157))
+  "I hold equivalences, probably for `convert' to use.")
 
 (defun convert (quantity before after)
   "I try converting the given quantity from the before unit to the
@@ -359,10 +379,14 @@ will return thee the previous one of its kind. I am the contrary of `next'."
 ;; strings
 ;;
 
+(defvar *newline* (string #\newline))
+
 (defun str (i)
+  "I return i represented as a string."
   (princ-to-string i))
 
 (defun concat (&rest items)
+  "I try to be smart in concatenating items, silently converting them to strings."
   (let ((out ""))
     (dolist (item items)
       (if (or (numberp item) (consp item))
