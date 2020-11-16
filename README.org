@@ -3,7 +3,7 @@
 * Grantha
 
 #+begin_center
-file:grantha.svg
+./grantha.svg
 # /grantha/
 #+end_center
 
@@ -17,12 +17,13 @@ elsewhere: which one is worse, dependecy hell or redundancy?
   to artha ‘meaning’).
 #+end_quote
 
-** Usage
 
 ** Installation
 
+Tested with ~sbcl~ and ~clisp~.
 
-** TODO
+
+** todo
 
 - fix ~human-readable-number~
 - make ~current-date-string~ reversible
