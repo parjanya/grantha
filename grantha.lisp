@@ -341,7 +341,8 @@ will return thee the next one of its kind. I am the contrary of `previous'."
 		(concatenate 'string
 			     (subseq thing 0 (- (length thing) 1))
 			     (next (subseq thing (- (length thing) 1)))))
-     (error "I don’t know quite what to do with this."))))
+    ;; (error "I don’t know quite what to do with this.")
+     )))
 
 (defun previous (thing)
   "Give me something, like an integer, a character, or a string, and I
