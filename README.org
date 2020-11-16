@@ -1,0 +1,28 @@
+#+HTML_HEAD_EXTRA: <style type="text/css"> .figure object { width: 33%; }</style>
+
+* Grantha
+
+#+begin_center
+file:grantha.svg
+# /grantha/
+#+end_center
+
+This is a collection of functions I tend to use. The package aims at
+being self-contained, and for that I might copy functions from
+elsewhere: which one is worse, dependecy hell or redundancy?
+
+#+begin_quote
+- grantha- :: Skt. an artificial arrangement of words, verse, composition,
+  treatise, literary production, book in prose or verse, text (opposed
+  to artha ‘meaning’).
+#+end_quote
+
+** Usage
+
+** Installation
+
+
+** TODO
+
+- fix ~human-readable-number~
+- make ~current-date-string~ reversible
