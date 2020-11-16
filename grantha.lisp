@@ -21,6 +21,7 @@
 (defpackage grantha
   (:use :cl)
   (:export alias
+	   list-exported-symbols-with-docstrings
 	   get-even-elements
 	   get-odd-elements
 	   make-plist
@@ -74,14 +75,23 @@
 ;;
 
 (defun list-exported-symbols-with-docstrings (package)
+  "I return a simple definition list in org-mode with the exported
+symbols of a package. I should do that in the order they are defined
+in the source code, but I do not."
   (let ((out ""))
     (do-external-symbols (p package)
       (if (ignore-errors (symbol-function p))
-	  (setq out (concat out *newline* "- " (symbol-name p) " /(function)/ :: "
-			    (documentation p 'function))))
+	  (setq out (concat out *newline* "- " (symbol-name p) " (function) :: "
+			    (coerce (subst #\space
+					   #\Newline
+					   (coerce (documentation 'str-to-int 'function) 'list))
+				    'string))))
       (if (ignore-errors (symbol-value p))
-	  (setq out (concat out *newline* "- " (symbol-name p) " /(variable)/ :: "
-			    (documentation p 'variable)))))
+	  (setq out (concat out *newline* "- " (symbol-name p) " (variable) :: "
+			    (coerce (subst #\space
+					   #\Newline
+					   (coerce (documentation 'str-to-int 'variable) 'list))
+				    'string)))))
     out))
 
 
