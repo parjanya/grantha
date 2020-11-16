@@ -1,5 +1,0 @@
-# Grantha
-
-## Usage
-
-## Installation
