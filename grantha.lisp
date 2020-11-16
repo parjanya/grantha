@@ -24,15 +24,26 @@
 	   get-even-elements
 	   get-odd-elements
 	   make-plist
+	   last-member
+	   reverse-cons
 	   truncate-memory
 	   truncate-time
 	   round-to
 	   pretty-number
 	   human-readable-number
+	   print-bin
+	   print-hex
+	   convert
 	   subtract-time-of-day
 	   time-to-execute-and-result
 	   parse-time
 	   current-date-string
+	   int-to-char
+	   char-to-int
+	   int-to-str
+	   str-to-int
+	   next
+	   previous
 	   str
 	   concat
 	   padding
@@ -82,7 +93,11 @@
           (error "The lists of keys and data are of unequal length."))
       (setq out (append (list (car x) (car y)) out)))))
 
+(defun last-member (lst)
+  (car (last lst)))
 
+(defun reverse-cons (cns)
+  (cons (cdr cns) (car cns)))
 
 
 ;;
@@ -162,6 +177,40 @@ and the short string for it.")
 		 (setq out (cons (float number) (cdr each))))))
     out))
 
+(defun print-bin (n)
+  "I print the given number in a binary representation."
+  (format nil "~b" n))
+
+(defun print-hex (n)
+  "I print the given number in a hexadecimal representation."
+  (format nil "~x" n))
+
+
+
+
+;;
+;; conversion of units
+;;
+
+(defparameter *equivalences*
+  '(((foot . metre) . 0.3048)
+    ((centimetre . inch) . 0.39370078740157)))
+
+(defun convert (quantity before after)
+  "I try converting the given quantity from the before unit to the
+after unit. I am not smart. Check `*equivalences*' to see all I know."
+  (let (conversion-pair equivalence invertedp)
+    (setq conversion-pair (cons before after))
+    (setq equivalence (assoc conversion-pair *equivalences* :test 'equal))
+    (unless equivalence
+      (setq equivalence (assoc (reverse-cons conversion-pair) *equivalences* :test 'equal))
+      (setq invertedp t))
+    (if equivalence
+	(if invertedp
+	    (/ quantity (cdr equivalence))
+	    (* quantity (cdr equivalence)))
+	(error "I do not know how to convert this!"))))
+
 
 
 
@@ -220,6 +269,89 @@ separated with 'T' instead of '_', but Edgard thinks it less legible."
       (if (equal timezone "+00")
 	  (setq timezone "Z")))
     (concatenate 'string date hour&c timezone)))
+
+
+
+
+;;
+;; characters
+;;
+
+(defun int-to-char (chr)
+  "Give me either an int or a list of them, and I shall return them
+converted to chars to thee. I am the contrary of `char-to-int'."
+  (let ((lst '())
+	(out '()))
+    ;; if it’s just a number, add it to a list,
+    ;; so DOLIST won’t fail
+    (if (numberp chr)
+	(setq lst (list chr))
+	(setq lst chr))    
+    (dolist (item lst)
+      (setq out (push (code-char item) out)))
+    ;; if we got just a number, return just it,
+    ;; instead of a list
+    (if (= (length out) 1)
+	(car out)
+	(reverse out))))
+
+(defun char-to-int (chr)
+  "Give me either a character or a list of them, and I shall return them
+converted to ints to thee. I am the contrary of `int-to-char'."
+  (let ((lst '())
+	(out '()))
+    (if (characterp chr)
+	(setq lst (list chr))
+	(setq lst chr))    
+    (dolist (item lst)
+      (setq out (push (char-code item) out)))
+    (if (= (length out) 1)
+	(car out)
+	(reverse out))))
+
+(defun int-to-str (chr)
+  "Give me either an int or a list of them, and I shall return them
+as a string, after converting them to characters. I am the contrary of `str-to-int'."
+  (let ((out '()))
+    (if (listp chr)
+	(dolist (item chr)
+	  (setq out (concatenate 'string out (string (code-char item)))))
+	(setq out (string (code-char chr))))
+  out))
+
+(defun str-to-int (str)
+  "Give me either a string or a list of them, and I shall return everything
+as a list, after converting them to integers. I am the contrary of `int-to-str'."
+  (let ((lst (coerce str 'list))
+	(out '()))
+    (dolist (item lst)
+      (push (char-to-int (character item)) out))
+    (if (= (length out) 1)
+	(car out)
+    (reverse out))))
+
+(defun next (thing)
+  "Give me something, like an integer, a character, or a string, and I
+will return thee the next one of its kind. I am the contrary of `previous'."
+  (typecase thing
+    (number (+ thing 1))
+    (character (int-to-char (+ (char-to-int thing) 1)))
+    (string (if (= (length thing) 1)
+		(int-to-str (+ (str-to-int thing) 1))
+		(concatenate 'string
+			     (subseq thing 0 (- (length thing) 1))
+			     (next (subseq thing (- (length thing) 1)))))
+     (error "I don’t know quite what to do with this."))))
+
+(defun previous (thing)
+  "Give me something, like an integer, a character, or a string, and I
+will return thee the previous one of its kind. I am the contrary of `next'."
+  (typecase thing
+    (number (- thing 1))
+    (character (int-to-char (- (char-to-int thing) 1)))
+    (string (int-to-str (- (str-to-int thing) 1)))))
+
+
 
 
 ;;
