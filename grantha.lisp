@@ -84,13 +84,13 @@ in the source code, but I do not."
 	  (setq out (concat out *newline* "- " (symbol-name p) " (function) :: "
 			    (coerce (subst #\space
 					   #\Newline
-					   (coerce (documentation 'str-to-int 'function) 'list))
+					   (coerce (documentation p 'function) 'list))
 				    'string))))
       (if (ignore-errors (symbol-value p))
 	  (setq out (concat out *newline* "- " (symbol-name p) " (variable) :: "
 			    (coerce (subst #\space
 					   #\Newline
-					   (coerce (documentation 'str-to-int 'variable) 'list))
+					   (coerce (documentation p 'variable) 'list))
 				    'string)))))
     out))
 
