@@ -2,7 +2,7 @@
 
 * Grantha
 
-<img src="./grantha.png"/>
+[[grantha.svg]]
 
 This is a collection of functions I tend to use. The package aims at
 being self-contained, and for that I might copy functions from
