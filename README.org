@@ -2,10 +2,7 @@
 
 * Grantha
 
-#+begin_center
-grantha.png
-# /grantha/
-#+end_center
+<img src="./grantha.png"/>
 
 This is a collection of functions I tend to use. The package aims at
 being self-contained, and for that I might copy functions from
