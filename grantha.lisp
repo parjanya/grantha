@@ -1,5 +1,5 @@
 #|
-  This file is a part of carteiro project.
+  This file is a part of Grantha project.
   Copyright (c) 2020 Edgard Bikelis (bikelis@gmail.com)
 
   Author: Edgard Bikelis (bikelis@gmail.com)
@@ -15,11 +15,14 @@
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Carteiro.  If not, see <https://www.gnu.org/licenses/>.
+  along with Grantha.  If not, see <https://www.gnu.org/licenses/>.
 |#
 
-(defpackage grantha
+(in-package :cl-user)
+
+(defpackage grantha  
   (:use :cl)
+  (:nicknames :gra)
   (:export alias
 	   list-exported-symbols-with-docstrings
 	   get-even-elements
@@ -27,9 +30,11 @@
 	   make-plist
 	   last-member
 	   reverse-cons
-	   truncate-memory
-	   truncate-time
-	   round-to
+	   tree-remove
+	   nested-getf
+	   ;; truncate-memory
+	   ;; truncate-time
+	   ;; round-to
 	   pretty-number
 	   human-readable-number
 	   print-bin
@@ -48,7 +53,11 @@
 	   str
 	   concat
 	   padding
-	   garbage-full))
+	   ;; from grantha-dependent.lisp
+	   garbage-full
+	   kill-all-threads-but-current
+	   url-encode
+	   url-decode))
 
 (in-package :grantha)
 
@@ -74,6 +83,8 @@
 ;; packages
 ;;
 
+
+;; see https://stackoverflow.com/questions/9743056/common-lisp-exporting-symbols-from-packages
 (defun list-exported-symbols-with-docstrings (package)
   "I return a simple definition list in org-mode with the exported
 symbols of a package. I should do that in the order they are defined
@@ -84,13 +95,15 @@ in the source code, but I do not."
 	  (setq out (concat out *newline* "- " (symbol-name p) " (function) :: "
 			    (coerce (subst #\space
 					   #\Newline
-					   (coerce (documentation p 'function) 'list))
+					   (coerce (documentation p 'function)
+						   'list))
 				    'string))))
       (if (ignore-errors (symbol-value p))
 	  (setq out (concat out *newline* "- " (symbol-name p) " (variable) :: "
 			    (coerce (subst #\space
 					   #\Newline
-					   (coerce (documentation p 'variable) 'list))
+					   (coerce (documentation p 'variable)
+						   'list))
 				    'string)))))
     out))
 
@@ -109,7 +122,7 @@ in the source code, but I do not."
   (loop :for element :in lst :by #'cddr :collect element))
 
 ;; inspired by /usr/share/sbcl-source/src/code/list.lisp, `pairlis'
-(defun make-plist (keys data)
+(defun make-plist (keys data &optional append-to-car-p)
   "Construct a property list from KEYS and DATA."
   (let (out)
     (do ((x keys (cdr x))
@@ -117,7 +130,9 @@ in the source code, but I do not."
 	((and (endp x) (endp y)) out)
       (if (or (endp x) (endp y))
           (error "The lists of keys and data are of unequal length."))
-      (setq out (append (list (car x) (car y)) out)))))
+      (if append-to-car-p
+	  (setq out (append (list (car x) (car y)) out))
+	  (setq out (append out (list (car x) (car y))))))))
 
 (defun last-member (lst)
   "I return the actual last member of a list."
@@ -126,6 +141,32 @@ in the source code, but I do not."
 (defun reverse-cons (cns)
   "I reverse a cons pair."
   (cons (cdr cns) (car cns)))
+
+;; from https://github.com/briangu/OPS5/blob/master/src/ops-util.lisp
+;; circa 1992
+(defun tree-remove (element tree &key (test #'equal))
+  "TREE-REMOVE is a function which deletes every occurrence
+   of ELEMENT from TREE. This function was defined because Common Lisp's
+   REMOVE function only removes top level elements from a list."
+  (when tree
+    (if (funcall test element (car tree)) 
+	(tree-remove element (cdr tree) :test test)
+	(cons (car tree)
+	      (tree-remove element (cdr tree) :test test)))))
+
+
+;;
+;; property lists, plists
+;;
+(defun nested-getf (place &rest indicators)
+  "(nested-getf a b c) → (getf (getf a b) c)."
+  (let (out)
+    (setq out place)
+    (dolist (indicator indicators)
+      (setq out (getf out indicator)))
+    out))
+
+
 
 
 ;;
@@ -257,13 +298,20 @@ after unit. I am not smart. Check `*equivalences*' to see all I know."
     (list seconds microseconds)))
 
 (defun time-to-execute-and-result (form)
-  "Returns the time (always in miliseconds?) to execute FORM, and its result."
+  "Returns the time (always in miliseconds?) to execute FORM, and its
+result. If we got an error, return a plist: (:error
+'the-error-object\").  NOTA BENE: If this is to be memoized, the
+object will be gone, so `princ-to-string' it."
   (let ((before-time (get-internal-real-time))
 	result
 	after-time)
-    (setq result (eval form))
+    (setq result (handler-case (eval form)
+		   (sb-c:compiler-error (the-error)
+		     (list :error (slot-value the-error 'condition)))
+		   (t (the-error)
+    		     (list :error the-error))))
     (setq after-time (get-internal-real-time))
-    (list (- after-time before-time) result)))
+    (list :miliseconds (- after-time before-time) :result result)))
 
 (defun parse-time (&optional (given-time (multiple-value-list (get-decoded-time))))
   "I either return thee the current `get-decoded-time' as a plist, or
@@ -300,6 +348,11 @@ separated with 'T' instead of '_', but Edgard thinks it less legible."
 	  (setq timezone "Z")))
     (concatenate 'string date hour&c timezone)))
 
+
+;; (eval `(encode-universal-time ,@(subseq (multiple-value-list (decode-universal-time (get-universal-time))) 0 6)))
+;; → 3814968316
+;; CL-USER> (get-universal-time)
+;; → 3814968322
 
 
 
@@ -419,20 +472,3 @@ with, and I shall return thee the selfsame string thus padded."
   (coerce str 'string))
 
 
-
-
-;;
-;; garbage collection
-;;
-
-(defun garbage-full (&optional raw-bytes-p)
-  "I ask for full garbage collection and return thee the number of
-bytes freed. Sometimes I return negative numbers, what should I do
-with them?"
-  (let ((old-dynamic-usage (sb-kernel:dynamic-usage))
-	difference)
-    (sb-ext:gc :full t)
-    (setq difference (- old-dynamic-usage (sb-kernel:dynamic-usage)))
-    (if raw-bytes-p
-	difference
-	(pretty-number difference))))
