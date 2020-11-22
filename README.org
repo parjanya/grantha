@@ -3,7 +3,7 @@
 * Grantha
 
 #+begin_center
-./grantha.svg
+grantha.png
 # /grantha/
 #+end_center
 
