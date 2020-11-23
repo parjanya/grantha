@@ -156,6 +156,18 @@ in the source code, but I do not."
 
 
 ;;
+;; association lists, alists
+;;
+
+(defun alist-remove-by-car (the-car alist)
+  "I am not destructive.
+
+(alist-remove-by-car 1 '((1 . \"a\") (2 . \"b\")))
+→ ((2 . \"b\"))"
+  (remove the-car alist :key #'car :test #'equal))
+
+
+;;
 ;; property lists, plists
 ;;
 (defun nested-getf (place &rest indicators)
@@ -173,10 +185,9 @@ in the source code, but I do not."
 ;; numbers
 ;;
 
-;;
-;; lossy
-;;
 
+;; lossy : /
+;;
 ;; Heavily inspired by Roy Anderson, on lisp-hug@lispworks.com
 (defun truncate-memory (bytes)
   "Give me some bytes, and them I shall return thee divided by the
@@ -213,6 +224,8 @@ maximum possible unit, together with that unit."
   "I round NUMBER to PRECISION."
     (let ((div (expt 10 precision)))
          (/ (funcall what (* number div)) div)))
+
+;; TODO: check serapeum:file-size-human-readable
 
 (defun pretty-number (n)
   "I truncate the bytes you give me. I am more expensive than `truncate-memory'."
@@ -297,15 +310,18 @@ after unit. I am not smart. Check `*equivalences*' to see all I know."
     (setq microseconds (- (nth 1 x) (nth 1 y)))
     (list seconds microseconds)))
 
-(defun time-to-execute-and-result (form)
+(defun time-to-execute-and-result (form &optional multiple-value-p)
   "Returns the time (always in miliseconds?) to execute FORM, and its
-result. If we got an error, return a plist: (:error
-'the-error-object\").  NOTA BENE: If this is to be memoized, the
-object will be gone, so `princ-to-string' it."
+result. In order to grab multiple values, the result might be returned
+as a list. If we got an error, return a plist: (:error
+'the-error-object).  NOTA BENE: If this is to be memoized, the object
+will be gone eventually, so `princ-to-string' it."
   (let ((before-time (get-internal-real-time))
 	result
 	after-time)
-    (setq result (handler-case (eval form)
+    (setq result (handler-case (eval (if multiple-value-p
+					 `(multiple-value-list ,form)
+					 form))
 		   (sb-c:compiler-error (the-error)
 		     (list :error (slot-value the-error 'condition)))
 		   (t (the-error)
@@ -471,4 +487,313 @@ with, and I shall return thee the selfsame string thus padded."
 	(push pad str)))
   (coerce str 'string))
 
+(defun string-to-octets (str)
+  (flexi-streams:string-to-octets str))
 
+(defun octets-to-string (str)
+  (flexi-streams:octets-to-string str))
+
+
+;;
+;; base64 foolery
+;;
+
+(defun base64-encode-octets-to-string (str)
+  "I am the contrary of `base64-encode-octets-to-string'.
+(base64-encode-octets-to-string #(1 2 3 224 164 178))
+→ \"AQID4KSy\"."
+  (with-output-to-string (out)
+    (s-base64:encode-base64-bytes str out nil)))
+
+(defun base64-decode-string-to-octets (str)
+  "I am the contrary of `base64-encode-string-to-octets'.
+(base64-decode-string-to-octets \"AQID4KSy\")
+→ #(1 2 3 224 164 178)."
+  (with-input-from-string (s str)
+    (s-base64:decode-base64-bytes s)))
+
+(defun base64-encode-string-to-string (str)
+  "Weird, I know, but I am useful to hide control characters.
+(base64-encode-string-to-string (concat \"a\" *newline* \"b\"))
+→ \"YQpi\"."
+  (with-output-to-string (out)
+    (s-base64:encode-base64-bytes
+     (flexi-streams:string-to-octets str :external-format :utf-8) out nil)))
+
+(defun base64-decode-string-to-string (str)
+  (flexi-streams:octets-to-string
+   (with-input-from-string (s str)
+     (s-base64:decode-base64-bytes s))))
+
+
+
+
+;;
+;; files
+;;
+
+(defun file-exists-p (file)
+  "I check if `file' exists. I return NIL if not, the path if true."
+  (directory file))
+
+(defun write-file-as-sexp (thing file)
+  "I write a THING into some FILE."
+  (with-open-file (f file
+		     :direction :output
+		     :if-exists :supersede
+		     :if-does-not-exist :create)
+    ;; we change *print-pretty* to avoid useless newlines in the file
+    (let ((*print-pretty* nil))
+	  (write thing :stream f :escape t)))
+  nil)
+
+(defun read-file-as-sexp (file)
+  "I READ something that was written into some FILE."
+    (if (probe-file file)
+	(with-open-file (f file
+			   :direction :input
+			   :if-does-not-exist nil)
+	  (read f))
+	(print "The file does not exist.")))
+
+(defun file-append (thing file &optional (end-with-newline-p nil))
+  (let (the-offset)
+    (with-open-file (f file
+		       :direction :output
+		       :if-exists :append
+		       :if-does-not-exist :create)
+      (setq the-offset (file-length f))
+      ;; we change *print-pretty* to avoid useless newlines in the file
+      (write thing :stream f :escape t :pretty nil)
+      (if end-with-newline-p
+	  (terpri f)))
+    (list :offset the-offset)))
+
+(defun file-read-from-offset (file offset)
+  (with-open-file (f file
+		     :direction :input
+		     :if-does-not-exist :error)
+    (file-position f offset)
+    (read-line f)))
+
+
+(defun file-read-binary-with-offset (pathname begin end)
+  "Read PATHNAME into a freshly allocated (unsigned-byte 8) vector."
+  (alexandria:with-input-from-file (stream pathname :element-type '(unsigned-byte 8))
+    (file-position stream begin)
+    (coerce (loop for i from 0 to end
+		  collect (read-byte stream))
+	    'vector)))
+
+;; while byte != 10 ;; *newline*
+
+
+(defun file-write-octets (octets file)
+  (alexandria:write-byte-vector-into-file octets
+					  file
+					  :if-exists :supersede
+					  :if-does-not-exist :create))
+
+(defun file-read-as-octets (file)
+  (alexandria:read-file-into-byte-vector file))
+
+
+;;
+;; serialization / serialisation
+;;
+
+;; (defun serialize-as-octet=store (thing)
+;;   "(store-as-octet-vector=store '(+ 1 1))
+;; #(67 76 67 76 43 10 35 1 1 43 35 1 11 67 79 77 77 79 78 45 76 73 83 80 0 24 0 1
+;;   1 0 24 0 1 1 1 41)"
+;;   (flex:with-output-to-sequence (s) (cl-store:store thing s)))
+
+(defun serialize-as-octet=encode (thing)
+  (conspack:encode thing))
+
+(defun serialize-as-octet=decode (thing)
+  (conspack:decode thing))
+
+(defun deserialize-file (file)
+  (conspack:decode-file file))
+
+
+
+;;
+;; compression
+;;
+
+(defun compress-octets (octets)
+  (salza2:compress-data octets 'salza2:gzip-compressor))
+
+(defun decompress-octets (octets)
+  (chipz:decompress nil 'chipz:gzip octets))
+
+
+;;
+;; memoization / memoisation
+;;
+
+(defun memoize=eval (sexp &optional multiple-value-p)
+  "I eval SEXP and return a plist with :sexp, the time taken to
+execute as :miliseconds, and the results as :result. If you want
+multiple values to be grabbed, give me a true multiple-value-p."
+  (let (result)
+    (setq result (gra:time-to-execute-and-result sexp multiple-value-p))
+    ;; if we got an error, print it so the result is more enlightening.
+    (when (ignore-errors (gra:nested-getf result :result :error))
+      (setf (getf (getf result :result) :error)
+	    (princ-to-string (gra:nested-getf result :result :error))))
+    (list :sexp sexp
+	  :multiple-value-p multiple-value-p
+	  :miliseconds (getf result :miliseconds)
+	  :universal-time (get-universal-time)
+	  :result (getf result :result))))
+
+(defparameter *stash-path* "~/ksipra/stash/"
+"We save the results of sexps in ‘stashes’, which are files with
+related data, and for that we need a path to save them.  Not
+everything is easily serialized, so beware.")
+
+(defparameter *stash-key-hash-tables-alist* '()
+  "I am a list composed of (\"stash\" . 'hash-table).")
+
+(defun memoize=write (key value stash &optional (stash-path *stash-path*))
+  "I receive a KEY and a VALUE, saving VALUE on a file named
+STASH-values, which has one field per line. VALUE comes from
+`memoize=eval', which returns a plist; the only one that we have to
+take care of here is `:result', which is the information we want to
+save for easy retrieval. In order to do that, we serialize it into
+octets, then compress those octets, and finally encode them in a
+base64 string.  This is the format in which `:result' will be written.
+Now we append the whole VALUE thus updated on the STASH-values file,
+which has one field per line. The VALUE is taken care of.  For
+retrieval, I read the STASH-keys file, a serialized hash-table, and
+append the new key having the new offset as its value, and finally I
+rewrite that STASH-keys file.
+
+  I do all that so we don’t need to have the entire STASH-values on
+memory, while still being able to retrieve the VALUE at a decent
+speed, hopefully. Also, appending the STASH-values file should be
+cheap, which wouldn’t be the case if we saved the whole thing as a
+hash-table, and superseding/rewriting it at every new addition.
+
+WARNING: `:result's bigger than the usual, ie. > 800kb, choke everything.
+
+TODO: make everything work with streams instead."
+  (ensure-directories-exist stash-path)
+  (let ((keys-file   (concat stash-path stash "-keys"))
+	(values-file (concat stash-path stash "-values"))
+	(keys-hash-table)
+	(result)
+	(result-encoded)
+	(keys-file-offset))
+    ;; now we find the correct hash-table. it should inhabit
+    ;; *stash-key-hash-tables-alist*, so we try that first
+    (setq keys-hash-table (cdr (assoc stash *stash-key-hash-tables-alist* :test #'equal)))
+    ;; if we don’t get it, it might be in a file he haven’t read
+    ;; yet. if the file exists, get it from there.
+    (when (file-exists-p keys-file)
+      (setq keys-hash-table
+	    (serialize-as-octet=decode
+	     (decompress-octets
+	      (file-read-as-octets keys-file)))))
+    ;; otherwise we never saw that stash before, and so we create a
+    ;; new hash-table.
+    (when (not keys-hash-table)
+      (setq keys-hash-table (make-hash-table :test #'equal)))
+    ;;
+    ;; encode the result
+    ;;
+    (setq result (getf value :result))
+    (setq result (serialize-as-octet=encode result))
+    (setq result-encoded (compress-octets result))
+    (setq result-encoded (base64-encode-octets-to-string result-encoded))
+    ;; update VALUE with the encoded result
+    (setf (getf value :result) result-encoded)
+    ;; write the value on the file
+    (setq keys-file-offset (last-member (file-append value values-file t)))
+    ;; add the key and offset on the appropriate hash-table.
+    (setf (gethash key keys-hash-table) keys-file-offset)
+    ;; remove the hash-table from the list of hash-tables, in case
+    ;; it’s there, so we don’t have two entries about it.
+    (setq *stash-key-hash-tables-alist* (alist-remove-by-car stash *stash-key-hash-tables-alist*))
+    ;; add it (back)
+    (setq *stash-key-hash-tables-alist* (acons stash keys-hash-table *stash-key-hash-tables-alist*))
+    ;; write the hash-table back
+    ;; first, serialize it
+    (setq keys-hash-table (serialize-as-octet=encode keys-hash-table))
+    (setq keys-hash-table (compress-octets keys-hash-table))
+    ;; then actually write it
+    (file-write-octets keys-hash-table keys-file)
+    (list :size-bytes-before (length result) :size-bytes-after (length result-encoded))))
+
+(defun memoize=read (key stash &optional (stash-path *stash-path*))
+  (let ((keys-file   (concat stash-path stash "-keys"))
+	(values-file (concat stash-path stash "-values"))
+	(keys-hash-table)
+	(keys-file-offset)
+	(value)
+	(result))
+    ;; now we find the correct hash-table. it should inhabit
+    ;; *stash-key-hash-tables-alist*, so we try that first
+    (setq keys-hash-table (cdr (assoc stash *stash-key-hash-tables-alist* :test #'equal)))
+    ;; if we don’t get it, it might be in a file he haven’t read
+    ;; yet. if the file exists, get it from there.
+    (unless keys-hash-table
+      (when (file-exists-p keys-file)
+	(setq keys-hash-table
+	      (serialize-as-octet=decode
+	       (decompress-octets
+		(file-read-as-octets keys-file))))))
+    ;; otherwise we never saw that stash before, so we give an error.
+    (when (not keys-hash-table)
+      (error "This stash doesn’t exist."))
+    (setq keys-file-offset (gethash key keys-hash-table))
+    ;;
+    ;; decode the result
+    ;;;
+    (setq value (file-read-from-offset values-file keys-file-offset))
+    (setq value (read-from-string value))
+    (setq result (getf value :result))
+    (setq result (base64-decode-string-to-string result))
+    (setq result (string-to-octets result))
+    (setq result (decompress-octets result))
+    (setq result (serialize-as-octet=decode result))
+    (setf (getf value :result) result)
+    value))
+
+(defun memoizedp (key stash &optional (stash-path *stash-path*))
+  (let ((keys-file   (concat stash-path stash "-keys"))
+	(keys-hash-table))
+    ;; now we find the correct hash-table. it should inhabit
+    ;; *stash-key-hash-tables-alist*, so we try that first
+    (setq keys-hash-table (cdr (assoc stash *stash-key-hash-tables-alist* :test #'equal)))
+    ;; if we don’t get it, it might be in a file he haven’t read
+    ;; yet. if the file exists, get it from there.
+    (unless keys-hash-table
+      (when (file-exists-p keys-file)
+	(setq keys-hash-table
+	      (serialize-as-octet=decode
+	       (decompress-octets
+		(file-read-as-octets keys-file))))))
+    ;; otherwise we never saw that stash before.
+    (if (not keys-hash-table)
+	nil
+	(gethash key keys-hash-table))))
+
+(defun memoized (sexp &optional return-whole-entry-p (stash-path *stash-path*))
+  "TODO: the function name shouldn’t have /, otherwise the file can’t
+be written, at least on ext4 filesystems. What to do? Replace it by what?"
+  ;; `princ-to-string' strips the package part of the name, as
+  ;; `dex:get' → "GET", but `prin1-to-string does give "DEX:GET".
+  (let ((stash (prin1-to-string (car sexp)))
+	(key (str (cdr sexp)))
+	value)
+    (if (memoizedp key stash stash-path)
+	(setq value (memoize=read key stash stash-path))
+	(progn (setq value (memoize=eval sexp))
+	       (memoize=write key value stash)))
+    (if return-whole-entry-p
+	value
+	(getf value :result))))

@@ -5,7 +5,12 @@
   :depends-on ("do-urlencode"
 		"dexador"
 		"cl-ppcre"
-		"plump")
+		"plump"
+		;; "cl-store"
+		"cl-conspack"
+		"flexi-streams"
+		"salza2"
+		"s-base64")
   :components ((:file "grantha")
                (:file "grantha-dependent"))
   :description "Personal library of recurrent sundries."
