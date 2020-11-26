@@ -10,7 +10,8 @@
 		"cl-conspack"
 		"flexi-streams"
 		"salza2"
-		"s-base64")
+		"s-base64"
+		"bordeaux-threads")
   :components ((:file "grantha")
                (:file "grantha-dependent"))
   :description "Personal library of recurrent sundries."

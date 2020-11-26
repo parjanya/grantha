@@ -277,7 +277,9 @@ and the short string for it.")
 
 (defparameter *equivalences*
   '(((foot . metre) . 0.3048)
-    ((centimetre . inch) . 0.39370078740157))
+    ((centimetre . inch) . 0.39370078740157)
+    ((quart . litre) . 0.94635295)
+    ((cup . litre) . 0.2365882375))
   "I hold equivalences, probably for `convert' to use.")
 
 (defun convert (quantity before after)
@@ -797,3 +799,47 @@ be written, at least on ext4 filesystems. What to do? Replace it by what?"
     (if return-whole-entry-p
 	value
 	(getf value :result))))
+
+
+
+;;
+;; threads, threadmaster
+;;
+
+
+(defun thread-info ()
+  (let* ((curr-thread (bt:current-thread))
+         (curr-thread-name (bt:thread-name curr-thread))
+         (all-threads (bt:all-threads)))
+    (format t "Current thread: ~a~%~%" curr-thread)
+    (format t "Current thread name: ~a~%~%" curr-thread-name)
+    (format t "All threads:~% ~{~a~%~}~%" all-threads))
+  nil)
+
+(defparameter *time-units* '((:millenia . 31536000000)
+			     (:years    . 31536000)
+			     (:days     . 86400)
+			     (:hours    . 3600)
+			     (:minutes  . 60)
+			     (:seconds  . 1)))
+
+(defun pretty-time (n)
+  (let ((parsed (list :seconds n))
+	(tmp 0))
+    (dolist (unit *time-units*)
+      (if (>= (getf parsed :seconds) (cdr unit))
+	  (progn (loop while (>= (getf parsed :seconds) (cdr unit))
+		       do (setf (getf parsed :seconds) (- (getf parsed :seconds) (cdr unit)))
+			  (setq tmp (1+ tmp)))
+		 (setq parsed (append parsed (list (car unit) tmp)))
+		 (setq tmp 0))))
+    (cddr parsed)))
+
+(defun pretty-time-to-seconds (time)
+  (let ((out 0))
+    (dolist (unit *time-units*)
+      (setq out (+ out (* (if (getf time (car unit))
+			      (getf time (car unit))
+			      0)
+			  (cdr unit)))))
+    out))
